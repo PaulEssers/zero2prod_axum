@@ -1,0 +1,25 @@
+[package]
+name = "zero2prod"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+actix-web = "4.4.0"
+axum = "0.6.20"
+axum-macros = "0.3.8"
+axum-test-helper = "0.3.0"
+config = "0.13.3"
+serde = { version = "1.0.188", features = ["derive", "serde_derive"] }
+sqlx = {version = "0.7.1", features = [ 
+    "runtime-tokio", 
+    "tls-rustls", 
+    "postgres", 
+    "macros",
+    "uuid",
+    "chrono",
+    "migrate"]}
+sqlx-cli = { version = "0.7.1", default-features = false, features = ["postgres"] }
+tokio = { version ="1.32.0", features = ["full"] }
