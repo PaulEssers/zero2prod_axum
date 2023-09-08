@@ -9,6 +9,8 @@ use zero2prod::configuration::get_configuration;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
+    tracing_subscriber::fmt::init();
+
     // read the configuration file
     let configuration = get_configuration().expect("Failed to read configuration.");
 
