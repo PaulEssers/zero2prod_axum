@@ -1,4 +1,5 @@
-pub mod routes;
+// pub mod app;
+// pub mod routes;
 
 use axum::Error;
 use std::net::SocketAddr;
@@ -8,8 +9,13 @@ use zero2prod::configuration::get_configuration;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
+    // read the configuration file
+    let configuration = get_configuration().expect("Failed to read configuration.");
+
     // spawn the app.
-    let app = spawn_app().await.expect("Failed to initialize app.");
+    let app = spawn_app(configuration)
+        .await
+        .expect("Failed to initialize app.");
 
     // Serve it with hyper.
     let addr = SocketAddr::from(([127, 0, 0, 1], 8080));

@@ -1,19 +1,49 @@
-use axum::body::Body;
-use axum::extract::Json;
-use axum::http::{Response, StatusCode};
+use axum::extract::{Json, State};
+use axum::http::StatusCode;
 use axum_macros::debug_handler;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize)]
+use chrono::Utc;
+use uuid::Uuid;
+
+use std::sync::Arc;
+
+use crate::app;
+
+#[derive(Serialize, Deserialize)]
 pub struct NewSubscriber {
-    email: String,
-    name: String,
+    pub email: String,
+    pub name: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Test {
+    result: i32,
 }
 
 #[debug_handler]
-pub async fn subscribe(Json(payload): Json<NewSubscriber>) -> Response<Body> {
-    Response::builder()
-        .status(StatusCode::OK)
-        .body(Body::empty())
-        .unwrap()
+pub async fn subscribe(
+    State(state): State<Arc<app::AppState>>,
+    Json(payload): Json<NewSubscriber>,
+) -> StatusCode {
+    let res = sqlx::query!(
+        r#"
+            INSERT INTO subscriptions (id, email, name, subscribed_at)
+            VALUES ($1, $2, $3, $4)
+            "#,
+        Uuid::new_v4(),
+        payload.email,
+        payload.name,
+        Utc::now()
+    )
+    .execute(&state.pg_pool)
+    .await;
+
+    match res {
+        Ok(_) => StatusCode::OK,
+        Err(err) => {
+            println!("Insertion failed with error: {:?}", err);
+            StatusCode::BAD_REQUEST
+        }
+    }
 }

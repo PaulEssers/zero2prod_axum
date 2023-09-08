@@ -1,11 +1,35 @@
-use axum::routing::get;
+use axum::routing::{get, post};
 use axum::Router;
+use axum_macros::FromRef;
 
+use crate::routes::subscribe::subscribe;
 use crate::routes::utils::health_check;
 
-pub async fn spawn_app() -> Result<Router, String> {
+use sqlx::PgPool;
+
+use std::sync::Arc;
+
+use crate::configuration::Settings;
+
+#[derive(Clone, FromRef)]
+pub struct AppState {
+    pub pg_pool: PgPool,
+}
+
+pub async fn spawn_app(configuration: Settings) -> Result<Router, String> {
+    let connection_pool = PgPool::connect(&configuration.database.connection_string())
+        .await
+        .expect("Failed to connect to Postgres.");
+
+    let shared_state = Arc::new(AppState {
+        pg_pool: connection_pool,
+    });
+
     // build our application with some routes
-    let app = Router::new().route("/health_check", get(health_check));
+    let app = Router::new()
+        .route("/health_check", get(health_check))
+        .route("/subscribe", post(subscribe))
+        .with_state(shared_state);
 
     Ok(app)
 }

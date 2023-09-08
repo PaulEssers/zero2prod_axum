@@ -1,12 +1,12 @@
 use config::{Config, File, FileFormat};
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, Clone)]
 pub struct Settings {
     pub database: DatabaseSettings,
     pub application_port: u16,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, Clone)]
 pub struct DatabaseSettings {
     pub username: String,
     pub password: String,
@@ -28,7 +28,7 @@ impl DatabaseSettings {
 // Read configuration settings from configuration.yaml and return them as a Settings object.
 pub fn get_configuration() -> Result<Settings, config::ConfigError> {
     // Initialise our configuration reader
-    let mut builder = Config::builder().add_source(File::new("config", FileFormat::Yaml));
+    let builder = Config::builder().add_source(File::new("configuration", FileFormat::Yaml));
     let conf = builder.build()?;
     conf.try_deserialize()
 }
