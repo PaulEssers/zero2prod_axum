@@ -25,6 +25,25 @@ pub async fn subscribe_returns_200_for_valid_form_data() {
         .send()
         .await;
     assert_eq!(response.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+pub async fn subscribe_inserts_rows_into_database() {
+    let test_setup = test_utils::create_test_setup().await;
+
+    let body = subscribe::NewSubscriber {
+        email: String::from("ursula_le_guin@gmail.com"),
+        name: String::from("Ursula le Quin"),
+    };
+
+    let response = test_setup
+        .client
+        .post("/subscribe")
+        .header("Content-Type", "application/json")
+        .json(&body)
+        .send()
+        .await;
+    assert_eq!(response.status(), StatusCode::OK);
 
     let response_db =
         sqlx::query!("SELECT * FROM subscriptions WHERE email='ursula_le_guin@gmail.com'")
