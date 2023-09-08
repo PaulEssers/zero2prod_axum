@@ -13,6 +13,7 @@ pub fn get_subscriber(name: String, env_filter: String) -> impl Subscriber + Sen
         .with(JsonStorageLayer)
         .with(formatting_layer)
 }
+
 /// Register a subscriber as global default to process span data.
 ///
 /// It should only be called once!

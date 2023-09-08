@@ -1,17 +1,48 @@
 use axum_test_helper::TestClient;
 use once_cell::sync::Lazy;
 use sqlx::{Connection, Executor, PgPool};
+use std;
 use uuid::Uuid;
 use zero2prod::app::spawn_app;
 use zero2prod::configuration::get_configuration;
 use zero2prod::configuration::DatabaseSettings;
 use zero2prod::telemetry::{get_subscriber, init_subscriber};
 
+use tracing::subscriber::set_global_default;
+use tracing::Subscriber;
+use tracing_bunyan_formatter::{BunyanFormattingLayer, JsonStorageLayer};
+use tracing_log::LogTracer;
+use tracing_subscriber::{layer::SubscriberExt, EnvFilter, Registry};
+
 // Ensure that the `tracing` stack is only initialised once using `once_cell`
 static TRACING: Lazy<()> = Lazy::new(|| {
-    let subscriber = get_subscriber("test".into(), "debug".into());
-    init_subscriber(subscriber);
+    let default_filter_level = "info".to_string();
+    let subscriber_name = "test".to_string();
+    // We cannot assign the output of `get_subscriber` to a variable based on the value of `TEST_LOG`
+
+    // If TEST_LOG is set, output the logs to stdout, else do not show them.
+    // because the sink is part of the type returned by `get_subscriber`, therefore they are not the
+    // same type. We could work around it, but this is the most straight-forward way of moving forward.
+    if std::env::var("TEST_LOG").is_ok() {
+        let subscriber = get_subscriber(subscriber_name, default_filter_level);
+        init_subscriber(subscriber);
+    } else {
+        let subscriber = get_sink_subscriber(subscriber_name, default_filter_level);
+        init_subscriber(subscriber);
+    };
 });
+
+// Could not get this to work as a parameter in the function above, so just copied it
+// this version sends the traces to std::io::sink, for use in tests.
+pub fn get_sink_subscriber(name: String, env_filter: String) -> impl Subscriber + Send + Sync {
+    let env_filter =
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(env_filter));
+    let formatting_layer = BunyanFormattingLayer::new(name, std::io::sink);
+    Registry::default()
+        .with(env_filter)
+        .with(JsonStorageLayer)
+        .with(formatting_layer)
+}
 
 pub struct TestSetup {
     pub client: TestClient,
