@@ -6,10 +6,9 @@ use crate::routes::subscribe::subscribe;
 use crate::routes::utils::health_check;
 
 use sqlx::PgPool;
-
 use std::sync::Arc;
-
-use tower_http::trace::{self, TraceLayer};
+use tower_http::trace;
+use tower_http::trace::TraceLayer;
 use tracing::Level;
 
 #[derive(Clone, FromRef)]
@@ -18,6 +17,7 @@ pub struct AppState {
 }
 
 pub async fn spawn_app(connection_string: &str) -> Result<Router, String> {
+    tracing::info!("Creating Postgres connection pool.");
     let connection_pool = PgPool::connect(connection_string)
         .await
         .expect("Failed to connect to Postgres.");
@@ -29,10 +29,15 @@ pub async fn spawn_app(connection_string: &str) -> Result<Router, String> {
     });
 
     // build our application with some routes
+    tracing::info!("Spawning app.");
     let app = Router::new()
         .route("/health_check", get(health_check))
         .route("/subscribe", post(subscribe))
-        .layer(TraceLayer::new_for_http())
+        .layer(
+            TraceLayer::new_for_http()
+                .make_span_with(trace::DefaultMakeSpan::new().level(Level::INFO))
+                .on_response(trace::DefaultOnResponse::new().level(Level::INFO)),
+        )
         .with_state(shared_state);
 
     Ok(app)

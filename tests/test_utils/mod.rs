@@ -1,18 +1,28 @@
-
 use axum_test_helper::TestClient;
+use once_cell::sync::Lazy;
 use sqlx::{Connection, Executor, PgPool};
 use uuid::Uuid;
 use zero2prod::app::spawn_app;
 use zero2prod::configuration::get_configuration;
 use zero2prod::configuration::DatabaseSettings;
+use zero2prod::telemetry::{get_subscriber, init_subscriber};
+
+// Ensure that the `tracing` stack is only initialised once using `once_cell`
+static TRACING: Lazy<()> = Lazy::new(|| {
+    let subscriber = get_subscriber("test".into(), "debug".into());
+    init_subscriber(subscriber);
+});
 
 pub struct TestSetup {
     pub client: TestClient,
     pub pg_pool: PgPool,
 }
 
-// Can I get the pool back from the app? Now I'm essentially creating multiple pools..
 pub async fn create_test_setup() -> TestSetup {
+    // The first time `initialize` is invoked the code in `TRACING` is executed.
+    // All other invocations will instead skip execution.
+    Lazy::force(&TRACING);
+
     let mut configuration = get_configuration().expect("Failed to read configuration.");
 
     // Generate a fresh database for each test.
@@ -22,6 +32,7 @@ pub async fn create_test_setup() -> TestSetup {
     configure_database(&configuration.database).await;
 
     // Spawn the app with the newly created db.
+    // Can I get the pool back from the app? Now I'm creating multiple pools.
     let connection_string = configuration.database.connection_string();
     let app = spawn_app(&connection_string)
         .await

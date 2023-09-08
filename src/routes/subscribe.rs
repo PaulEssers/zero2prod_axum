@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use crate::app;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct NewSubscriber {
     pub email: String,
     pub name: String,
@@ -26,6 +26,8 @@ pub async fn subscribe(
     State(state): State<Arc<app::AppState>>,
     Json(payload): Json<NewSubscriber>,
 ) -> StatusCode {
+    tracing::info!("Processing request: {:?}", payload);
+
     let res = sqlx::query!(
         r#"
             INSERT INTO subscriptions (id, email, name, subscribed_at)

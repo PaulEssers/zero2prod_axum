@@ -7,9 +7,12 @@ use std::net::SocketAddr;
 use zero2prod::app::spawn_app;
 use zero2prod::configuration::get_configuration;
 
+mod telemetry;
+
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    tracing_subscriber::fmt::init();
+    let subscriber = telemetry::get_subscriber("zero2prod".into(), "info".into());
+    telemetry::init_subscriber(subscriber);
 
     // read the configuration file
     let configuration = get_configuration().expect("Failed to read configuration.");
