@@ -9,15 +9,13 @@ use sqlx::PgPool;
 
 use std::sync::Arc;
 
-use crate::configuration::Settings;
-
 #[derive(Clone, FromRef)]
 pub struct AppState {
     pub pg_pool: PgPool,
 }
 
-pub async fn spawn_app(configuration: Settings) -> Result<Router, String> {
-    let connection_pool = PgPool::connect(&configuration.database.connection_string())
+pub async fn spawn_app(connection_string: &str) -> Result<Router, String> {
+    let connection_pool = PgPool::connect(connection_string)
         .await
         .expect("Failed to connect to Postgres.");
 

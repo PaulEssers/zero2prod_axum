@@ -13,7 +13,7 @@ async fn main() -> Result<(), Error> {
     let configuration = get_configuration().expect("Failed to read configuration.");
 
     // spawn the app.
-    let app = spawn_app(configuration)
+    let app = spawn_app(&configuration.database.connection_string())
         .await
         .expect("Failed to initialize app.");
 

@@ -23,6 +23,13 @@ impl DatabaseSettings {
             self.username, self.password, self.host, self.port, self.database_name
         )
     }
+
+    pub fn connection_string_no_db(&self) -> String {
+        format!(
+            "postgres://{}:{}@{}:{}",
+            self.username, self.password, self.host, self.port
+        )
+    }
 }
 
 // Read configuration settings from configuration.yaml and return them as a Settings object.

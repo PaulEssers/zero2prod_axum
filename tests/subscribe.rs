@@ -1,33 +1,24 @@
 use axum::http::StatusCode;
 use axum_test_helper::TestClient;
+use serde::Serialize;
+use sqlx::PgPool;
 use zero2prod::app::spawn_app;
 use zero2prod::configuration::get_configuration;
 use zero2prod::routes::subscribe;
 
-use sqlx::PgPool;
+mod test_utils;
 
 #[tokio::test]
 pub async fn subscribe_returns_200_for_valid_form_data() {
-    let configuration = get_configuration().expect("Failed to read configuration.");
-    let app = spawn_app(configuration.clone())
-        .await
-        .expect("Failed to spawn app.");
-    let client = TestClient::new(app);
+    let test_setup = test_utils::create_test_setup().await;
 
-    // Should get the state from app now. How? Or skip this step completely
-    // And implement another route to check if the db insertion worked.
-    let connection_string = configuration.database.connection_string();
-    let connection = PgPool::connect(&connection_string)
-        .await
-        .expect("Failed to connect to Postgres");
-
-    // Start actual test.
     let body = subscribe::NewSubscriber {
         email: String::from("ursula_le_guin@gmail.com"),
         name: String::from("Ursula le Quin"),
     };
 
-    let response = client
+    let response = test_setup
+        .client
         .post("/subscribe")
         .header("Content-Type", "application/json")
         .json(&body)
@@ -37,56 +28,97 @@ pub async fn subscribe_returns_200_for_valid_form_data() {
 
     let response_db =
         sqlx::query!("SELECT * FROM subscriptions WHERE email='ursula_le_guin@gmail.com'")
-            .fetch_all(&connection)
+            .fetch_all(&test_setup.pg_pool)
             .await
             .expect("Failed to connect to Postgres when verifying insertion.");
 
     assert_eq!(response_db.len(), 1)
 }
 
-#[tokio::test]
-pub async fn subscribe_returns_400_when_data_is_missing() {
-    let configuration = get_configuration().expect("Failed to read configuration.");
-    let app = spawn_app(configuration)
-        .await
-        .expect("Failed to spawn app.");
-    let client = TestClient::new(app);
+// Could not get these tests to run in a loop due to the varying structs needed to
+// mimic missing keys in the JSON payload.
+#[derive(Serialize)]
+struct MissingEmail {
+    name: String,
+}
 
-    let test_case1 = subscribe::NewSubscriber {
-        email: String::from(""),
+#[tokio::test]
+pub async fn subscribe_returns_422_when_email_is_missing() {
+    let test_setup = test_utils::create_test_setup().await;
+
+    let json = MissingEmail {
         name: String::from("Ursula le Quin"),
     };
-    let test_case2 = subscribe::NewSubscriber {
-        email: String::from("ursula_le_guin@gmail.com"),
-        name: String::from(""),
-    };
-    let test_case3 = subscribe::NewSubscriber {
-        email: String::from(""),
-        name: String::from(""),
+
+    let response = test_setup
+        .client
+        .post("/subscribe")
+        .header("Content-Type", "application/json")
+        .json(&json)
+        .send()
+        .await;
+    // .expect("Failed to execute request.");
+    // Assert
+    assert_eq!(
+        StatusCode::UNPROCESSABLE_ENTITY,
+        response.status(),
+        // Additional customised error message on test failure
+        "The API did not fail with 422 Unprocessable Entity when the payload was missing the email address."
+    );
+}
+
+#[derive(Serialize)]
+struct MissingName {
+    email: String,
+}
+
+#[tokio::test]
+pub async fn subscribe_returns_422_when_name_is_missing() {
+    let test_setup = test_utils::create_test_setup().await;
+
+    let json = MissingName {
+        email: String::from("ursula_le_quin@gmail.com"),
     };
 
-    let test_cases: Vec<(subscribe::NewSubscriber, &str)> = vec![
-        (test_case1, "missing the email"),
-        (test_case2, "missing the name"),
-        (test_case3, "missing both name and email"),
-    ];
+    let response = test_setup
+        .client
+        .post("/subscribe")
+        .header("Content-Type", "application/json")
+        .json(&json)
+        .send()
+        .await;
+    // .expect("Failed to execute request.");
+    // Assert
+    assert_eq!(
+        StatusCode::UNPROCESSABLE_ENTITY,
+        response.status(),
+        // Additional customised error message on test failure
+        "The API did not fail with 422 Unprocessable Entity when the payload was missing the name."
+    );
+}
 
-    for (invalid_body, error_message) in test_cases {
-        // Act
-        let response = client
-            .post("/subscribe")
-            .header("Content-Type", "application/json")
-            .json(&invalid_body)
-            .send()
-            .await;
-        // .expect("Failed to execute request.");
-        // Assert
-        assert_eq!(
-            StatusCode::BAD_REQUEST,
-            response.status(),
-            // Additional customised error message on test failure
-            "The API did not fail with 400 Bad Request when the payload was {}.",
-            error_message
-        );
-    }
+#[derive(Serialize)]
+struct MissingBoth {}
+
+#[tokio::test]
+pub async fn subscribe_returns_422_when_email_and_name_are_missing() {
+    let test_setup = test_utils::create_test_setup().await;
+
+    let json = MissingBoth {};
+
+    let response = test_setup
+        .client
+        .post("/subscribe")
+        .header("Content-Type", "application/json")
+        .json(&json)
+        .send()
+        .await;
+    // .expect("Failed to execute request.");
+    // Assert
+    assert_eq!(
+        StatusCode::UNPROCESSABLE_ENTITY,
+        response.status(),
+        // Additional customised error message on test failure
+        "The API did not fail with 422 Unprocessable Entity when the payload was missing both the name and the email address."
+    );
 }
