@@ -1,6 +1,6 @@
-use axum::Router;
+
 use axum_test_helper::TestClient;
-use sqlx::{Connection, Executor, PgConnection, PgPool};
+use sqlx::{Connection, Executor, PgPool};
 use uuid::Uuid;
 use zero2prod::app::spawn_app;
 use zero2prod::configuration::get_configuration;
@@ -38,7 +38,7 @@ pub async fn create_test_setup() -> TestSetup {
 // Creates and migrates a new database to be used for testing.
 pub async fn configure_database(config: &DatabaseSettings) -> PgPool {
     // Create database
-    let mut connection = PgPool::connect(&config.connection_string_no_db())
+    let connection = PgPool::connect(&config.connection_string_no_db())
         .await
         .expect("Failed to connect to Postgres");
     connection

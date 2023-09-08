@@ -1,11 +1,6 @@
 use axum::http::StatusCode;
-use axum_test_helper::TestClient;
 use serde::Serialize;
-use sqlx::PgPool;
-use zero2prod::app::spawn_app;
-use zero2prod::configuration::get_configuration;
 use zero2prod::routes::subscribe;
-
 mod test_utils;
 
 #[tokio::test]
