@@ -4,4 +4,5 @@ check:
 	cargo tarpaulin --ignore-tests # code coverage
 	cargo clippy -- -D warnings # fail if there are warnings
 	cargo fmt -- --check # fail if not properly formatted
+	docker build . -t paulessers/zero2prod
 

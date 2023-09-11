@@ -1,8 +1,6 @@
 use axum::extract::{Json, State};
 use axum::http::StatusCode;
 use axum_macros::debug_handler;
-use serde::{Deserialize, Serialize};
-
 use chrono::Utc;
 use uuid::Uuid;
 
@@ -10,21 +8,22 @@ use std::sync::Arc;
 
 use crate::app;
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct NewSubscriber {
-    pub email: String,
-    pub name: String,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct Test {
-    result: i32,
-}
+use crate::models;
 
 #[debug_handler]
+#[tracing::instrument(
+    name = "Adding a new subscriber",
+    skip(state, payload),
+    fields(
+        // could not find a way to get this automatically with tower_http like in the book.
+        request_id = %Uuid::new_v4(), 
+        subscriber_email = %payload.get_email(),
+        subscriber_name= %payload.get_name()
+    )
+)]
 pub async fn subscribe(
     State(state): State<Arc<app::AppState>>,
-    Json(payload): Json<NewSubscriber>,
+    Json(payload): Json<models::NewSubscriber>,
 ) -> StatusCode {
     tracing::info!("Processing request: {:?}", payload);
 
@@ -34,8 +33,8 @@ pub async fn subscribe(
             VALUES ($1, $2, $3, $4)
             "#,
         Uuid::new_v4(),
-        payload.email,
-        payload.name,
+        payload.get_email(),
+        payload.get_name(),
         Utc::now()
     )
     .execute(&state.pg_pool)
@@ -44,7 +43,7 @@ pub async fn subscribe(
     match res {
         Ok(_) => StatusCode::OK,
         Err(err) => {
-            println!("Insertion failed with error: {:?}", err);
+            tracing::error!("Insertion failed with error: {:?}", err);
             StatusCode::BAD_REQUEST
         }
     }

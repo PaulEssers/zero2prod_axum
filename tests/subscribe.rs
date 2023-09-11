@@ -1,32 +1,51 @@
 use axum::http::StatusCode;
+use quickcheck::Arbitrary;
 use serde::Serialize;
-use zero2prod::routes::subscribe;
 mod test_utils;
 
+use fake::faker::internet::en::SafeEmail;
+use fake::Fake;
+
+use rand::rngs::StdRng;
+use rand::SeedableRng;
+
+#[derive(serde::Serialize)]
+pub struct SubscribeRequest {
+    email: String,
+    name: String,
+}
+
 #[tokio::test]
+// #[quickcheck_macros::quickcheck]
+//#[quickcheck_async::tokio]
 pub async fn subscribe_returns_200_for_valid_form_data() {
     let test_setup = test_utils::create_test_setup().await;
+    // let mut rng = StdRng::from_seed(1234);
 
-    let body = subscribe::NewSubscriber {
-        email: String::from("ursula_le_guin@gmail.com"),
-        name: String::from("Ursula le Quin"),
-    };
+    for i in 0..100 {
+        let body = SubscribeRequest {
+            email: String::from("ursula_le_guin@gmail.com"),
+            // email: SafeEmail().fake_with_rng(&mut rng),
+            name: String::from("Ursula le Quin"),
+        };
 
-    let response = test_setup
-        .client
-        .post("/subscribe")
-        .header("Content-Type", "application/json")
-        .json(&body)
-        .send()
-        .await;
-    assert_eq!(response.status(), StatusCode::OK);
+        let response = test_setup
+            .client
+            .post("/subscribe")
+            .header("Content-Type", "application/json")
+            .json(&body)
+            .send()
+            .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        // response.status() == StatusCode::OK
+    }
 }
 
 #[tokio::test]
 pub async fn subscribe_inserts_rows_into_database() {
     let test_setup = test_utils::create_test_setup().await;
 
-    let body = subscribe::NewSubscriber {
+    let body = SubscribeRequest {
         email: String::from("ursula_le_guin@gmail.com"),
         name: String::from("Ursula le Quin"),
     };
@@ -135,4 +154,38 @@ pub async fn subscribe_returns_422_when_email_and_name_are_missing() {
         // Additional customised error message on test failure
         "The API did not fail with 422 Unprocessable Entity when the payload was missing both the name and the email address."
     );
+}
+
+#[tokio::test]
+async fn subscribe_returns_a_422_when_fields_are_present_but_erroneous() {
+    // Arrange
+    let test_setup = test_utils::create_test_setup().await;
+
+    let test_cases = vec![
+        ("", "ursula_le_guin@gmail.com", "empty name"),
+        ("Ursula le Guin", "", "empty email"),
+        ("Ursula", "definitely-not-an-email", "invalid email"),
+    ];
+    for (name, email, description) in test_cases {
+        // Act
+
+        let body = SubscribeRequest {
+            email: String::from(email),
+            name: String::from(name),
+        };
+
+        let response = test_setup
+            .client
+            .post("/subscribe")
+            .header("Content-Type", "application/json")
+            .json(&body)
+            .send()
+            .await;
+        assert_eq!(
+            response.status(),
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "The API did not return a 422 Unprocessable Entity when the payload had an {}.",
+            description
+        );
+    }
 }

@@ -15,13 +15,20 @@ async fn main() -> Result<(), Error> {
     // read the configuration file
     let configuration = get_configuration().expect("Failed to read configuration.");
 
+    tracing::info!("config={:?}", configuration);
+
     // spawn the app.
-    let app = spawn_app(&configuration.database.connection_string())
+    let app = spawn_app(configuration.database.with_db())
         .await
         .expect("Failed to initialize app.");
 
     // Serve it with hyper.
-    let addr = SocketAddr::from(([127, 0, 0, 1], 8080));
+    let addr_str = format!(
+        "{}:{}",
+        configuration.application.host, configuration.application.port
+    );
+    let addr: SocketAddr = addr_str.parse().expect("Unable to parse socket address");
+    // let addr = SocketAddr::from(([127, 0, 0, 1], configuration.application_port));
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
         .await

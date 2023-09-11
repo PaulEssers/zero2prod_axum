@@ -1,6 +1,6 @@
 use axum_test_helper::TestClient;
 use once_cell::sync::Lazy;
-use sqlx::{Connection, Executor, PgPool};
+use sqlx::{Executor, PgPool}; // Connection,
 use std;
 use uuid::Uuid;
 use zero2prod::app::spawn_app;
@@ -8,10 +8,10 @@ use zero2prod::configuration::get_configuration;
 use zero2prod::configuration::DatabaseSettings;
 use zero2prod::telemetry::{get_subscriber, init_subscriber};
 
-use tracing::subscriber::set_global_default;
+// use tracing::subscriber::set_global_default;
 use tracing::Subscriber;
 use tracing_bunyan_formatter::{BunyanFormattingLayer, JsonStorageLayer};
-use tracing_log::LogTracer;
+// use tracing_log::LogTracer;
 use tracing_subscriber::{layer::SubscriberExt, EnvFilter, Registry};
 
 // Ensure that the `tracing` stack is only initialised once using `once_cell`
@@ -64,13 +64,13 @@ pub async fn create_test_setup() -> TestSetup {
 
     // Spawn the app with the newly created db.
     // Can I get the pool back from the app? Now I'm creating multiple pools.
-    let connection_string = configuration.database.connection_string();
-    let app = spawn_app(&connection_string)
+    let connection_options = configuration.database.with_db();
+    let app = spawn_app(connection_options.clone())
         .await
         .expect("Failed to spawn app.");
     let client = TestClient::new(app);
 
-    let pg_pool = PgPool::connect(&connection_string)
+    let pg_pool = PgPool::connect_with(connection_options)
         .await
         .expect("Failed to connect to Postgres");
 
@@ -80,7 +80,7 @@ pub async fn create_test_setup() -> TestSetup {
 // Creates and migrates a new database to be used for testing.
 pub async fn configure_database(config: &DatabaseSettings) -> PgPool {
     // Create database
-    let connection = PgPool::connect(&config.connection_string_no_db())
+    let connection = PgPool::connect_with(config.without_db())
         .await
         .expect("Failed to connect to Postgres");
     connection
@@ -88,7 +88,7 @@ pub async fn configure_database(config: &DatabaseSettings) -> PgPool {
         .await
         .expect("Failed to create database.");
     // Migrate database (run commands defined in ./migrations)
-    let connection_pool = PgPool::connect(&config.connection_string())
+    let connection_pool = PgPool::connect_with(config.with_db())
         .await
         .expect("Failed to connect to Postgres.");
 

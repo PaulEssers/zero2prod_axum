@@ -1,6 +1,7 @@
 use axum::routing::{get, post};
 use axum::Router;
 use axum_macros::FromRef;
+use sqlx::postgres::PgConnectOptions;
 
 use crate::routes::subscribe::subscribe;
 use crate::routes::utils::health_check;
@@ -16,11 +17,9 @@ pub struct AppState {
     pub pg_pool: PgPool,
 }
 
-pub async fn spawn_app(connection_string: &str) -> Result<Router, String> {
+pub async fn spawn_app(connection_options: PgConnectOptions) -> Result<Router, String> {
     tracing::info!("Creating Postgres connection pool.");
-    let connection_pool = PgPool::connect(connection_string)
-        .await
-        .expect("Failed to connect to Postgres.");
+    let connection_pool = PgPool::connect_lazy_with(connection_options);
 
     // Axum starts a service per thread on the machine.
     // Arc lets the database connection be shared between threads
