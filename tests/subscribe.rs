@@ -1,13 +1,6 @@
 use axum::http::StatusCode;
-use quickcheck::Arbitrary;
 use serde::Serialize;
 mod test_utils;
-
-use fake::faker::internet::en::SafeEmail;
-use fake::Fake;
-
-use rand::rngs::StdRng;
-use rand::SeedableRng;
 
 #[derive(serde::Serialize)]
 pub struct SubscribeRequest {
@@ -20,25 +13,21 @@ pub struct SubscribeRequest {
 //#[quickcheck_async::tokio]
 pub async fn subscribe_returns_200_for_valid_form_data() {
     let test_setup = test_utils::create_test_setup().await;
-    // let mut rng = StdRng::from_seed(1234);
 
-    for i in 0..100 {
-        let body = SubscribeRequest {
-            email: String::from("ursula_le_guin@gmail.com"),
-            // email: SafeEmail().fake_with_rng(&mut rng),
-            name: String::from("Ursula le Quin"),
-        };
+    let body = SubscribeRequest {
+        email: String::from("ursula_le_guin@gmail.com"),
+        name: String::from("Ursula le Quin"),
+    };
 
-        let response = test_setup
-            .client
-            .post("/subscribe")
-            .header("Content-Type", "application/json")
-            .json(&body)
-            .send()
-            .await;
-        assert_eq!(response.status(), StatusCode::OK);
-        // response.status() == StatusCode::OK
-    }
+    let response = test_setup
+        .client
+        .post("/subscribe")
+        .header("Content-Type", "application/json")
+        .json(&body)
+        .send()
+        .await;
+    assert_eq!(response.status(), StatusCode::OK);
+    // response.status() == StatusCode::OK
 }
 
 #[tokio::test]

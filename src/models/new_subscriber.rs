@@ -1,13 +1,13 @@
 // use email_address::EmailAddress;
 use serde::{Deserialize, Deserializer, Serialize};
-use unicode_segmentation::UnicodeSegmentation;
-use validator::validate_email;
+
+use crate::models::validation;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct NewSubscriber {
-    #[serde(deserialize_with = "validate_email_address")]
+    #[serde(deserialize_with = "validation::validate_email_address")]
     email: String,
-    #[serde(deserialize_with = "validate_name")]
+    #[serde(deserialize_with = "validation::validate_name")]
     name: String,
 }
 
@@ -24,47 +24,46 @@ impl NewSubscriber {
     }
 }
 
-fn validate_email_address<'de, D>(deserializer: D) -> Result<String, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let s: String = String::deserialize(deserializer)?;
-    let is_valid = validate_email(&s);
-    if is_valid {
-        return Ok(s);
-    } else {
-        return Err(serde::de::Error::custom("Not a valid email address."));
-    };
-}
+#[cfg(test)]
+mod tests {
 
-fn validate_name<'de, D>(deserializer: D) -> Result<String, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let s: String = String::deserialize(deserializer)?;
+    use super::*;
 
-    // A grapheme is defined by the Unicode standard as a "user-perceived"
-    // character: `å` is a single grapheme, but it is composed of two characters
-    // (`a` and ``).
-    //
-    // `graphemes` returns an iterator over the graphemes in the input `s`.
-    // `true` specifies that we want to use the extended grapheme definition set,
-    // the recommended one.
-    if s.graphemes(true).count() > 256 {
-        return Err(serde::de::Error::custom(
-            "Name length exceeds 256 characters.",
-        ));
+    use fake::faker::internet::en::SafeEmail;
+    use fake::Fake;
+    use quickcheck::Gen;
+    use rand::{rngs::StdRng, SeedableRng};
+
+    #[derive(Serialize, Deserialize)]
+    pub struct SubscribeRequest {
+        email: String,
+        name: String,
     }
-    if s.trim().is_empty() {
-        return Err(serde::de::Error::custom("Name is empty string."));
+
+    #[derive(Debug, Clone)]
+    struct ValidEmailFixture(pub String);
+    impl quickcheck::Arbitrary for ValidEmailFixture {
+        fn arbitrary(g: &mut Gen) -> Self {
+            let mut rng = StdRng::seed_from_u64(u64::arbitrary(g));
+            let email = SafeEmail().fake_with_rng(&mut rng);
+            Self(email)
+        }
     }
-    // Iterate over all characters in the input `s` to check if any of them matches
-    // one of the characters in the forbidden array.
-    let forbidden_characters = ['/', '(', ')', '"', '<', '>', '\\', '{', '}'];
-    if s.chars().any(|g| forbidden_characters.contains(&g)) {
-        return Err(serde::de::Error::custom(
-            "Name contains forbidden character(s).",
-        ));
+
+    // quickcheck will generate 100 valid emails to test.
+    #[quickcheck_macros::quickcheck]
+    // #[test]
+    pub fn valid_email_is_parsed_succesfully(valid_email: ValidEmailFixture) -> bool {
+        let body = SubscribeRequest {
+            email: valid_email.0,
+            // email: String::from("ursula_le_guin@gmail.com"),
+            name: String::from("Ursula le Quin"),
+        };
+        let json_str = serde_json::to_string(&body).expect("Failed so serialize request.");
+        let parsed_data = serde_json::from_str::<NewSubscriber>(&json_str);
+        match parsed_data {
+            Ok(_) => return true,
+            Err(_) => return false,
+        };
     }
-    Ok(s)
 }
