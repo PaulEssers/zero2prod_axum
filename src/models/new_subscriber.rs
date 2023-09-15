@@ -1,5 +1,4 @@
-// use email_address::EmailAddress;
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Serialize};
 
 use crate::models::validation;
 
@@ -41,7 +40,7 @@ mod tests {
     }
 
     #[derive(Debug, Clone)]
-    struct ValidEmailFixture(pub String);
+    pub struct ValidEmailFixture(pub String);
     impl quickcheck::Arbitrary for ValidEmailFixture {
         fn arbitrary(g: &mut Gen) -> Self {
             let mut rng = StdRng::seed_from_u64(u64::arbitrary(g));

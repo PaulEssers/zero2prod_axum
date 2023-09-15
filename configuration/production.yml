@@ -2,3 +2,7 @@ application:
   host: 0.0.0.0
 database:
   require_ssl: true
+email_client:
+  base_url: "localhost" # replace with actual email service API
+  sender: "test@gmail.com" # replace with actual authorized email address
+  authorization_token: "mytoken"

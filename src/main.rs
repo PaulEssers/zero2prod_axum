@@ -18,7 +18,7 @@ async fn main() -> Result<(), Error> {
     tracing::info!("config={:?}", configuration);
 
     // spawn the app.
-    let app = spawn_app(configuration.database.with_db())
+    let app = spawn_app(configuration.clone())
         .await
         .expect("Failed to initialize app.");
 

@@ -1,8 +1,9 @@
 use axum::routing::{get, post};
 use axum::Router;
 use axum_macros::FromRef;
-use sqlx::postgres::PgConnectOptions;
 
+use crate::configuration::Settings;
+use crate::email_client::{EmailClient, ValidEmail};
 use crate::routes::subscribe::subscribe;
 use crate::routes::utils::health_check;
 
@@ -15,16 +16,25 @@ use tracing::Level;
 #[derive(Clone, FromRef)]
 pub struct AppState {
     pub pg_pool: PgPool,
+    pub email_client: EmailClient,
 }
 
-pub async fn spawn_app(connection_options: PgConnectOptions) -> Result<Router, String> {
+pub async fn spawn_app(configuration: Settings) -> Result<Router, String> {
     tracing::info!("Creating Postgres connection pool.");
-    let connection_pool = PgPool::connect_lazy_with(connection_options);
+    let pg_pool = PgPool::connect_lazy_with(configuration.database.with_db());
+
+    let sender_email = ValidEmail::new(&configuration.email_client.sender)?;
+    let email_client = EmailClient::new(
+        configuration.email_client.base_url,
+        sender_email,
+        configuration.email_client.authorization_token,
+    );
 
     // Axum starts a service per thread on the machine.
     // Arc lets the database connection be shared between threads
     let shared_state = Arc::new(AppState {
-        pg_pool: connection_pool,
+        pg_pool,
+        email_client,
     });
 
     // build our application with some routes

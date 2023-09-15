@@ -3,17 +3,26 @@ use sqlx::postgres::PgConnectOptions;
 use sqlx::postgres::PgSslMode;
 use sqlx::ConnectOptions;
 
+// Todo: Validate all the settings.
+
 #[derive(serde::Deserialize, Clone, Debug)]
 pub struct Settings {
     pub database: DatabaseSettings,
     pub application: ApplicationSettings,
+    pub email_client: EmailClientSettings,
 }
 
 #[derive(serde::Deserialize, Clone, Debug)]
 pub struct ApplicationSettings {
     pub port: u16,
     pub host: String,
-    // pub testvar: i32,
+}
+
+#[derive(serde::Deserialize, Clone, Debug)]
+pub struct EmailClientSettings {
+    pub base_url: String,
+    pub sender: String,
+    pub authorization_token: String,
 }
 
 #[derive(serde::Deserialize, Clone, Debug)]

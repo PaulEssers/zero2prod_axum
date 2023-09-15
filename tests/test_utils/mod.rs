@@ -64,12 +64,13 @@ pub async fn create_test_setup() -> TestSetup {
 
     // Spawn the app with the newly created db.
     // Can I get the pool back from the app? Now I'm creating multiple pools.
-    let connection_options = configuration.database.with_db();
-    let app = spawn_app(connection_options.clone())
+    let app = spawn_app(configuration.clone())
         .await
         .expect("Failed to spawn app.");
     let client = TestClient::new(app);
 
+    // This pool is required to directly check the result of database operations.
+    let connection_options = configuration.database.with_db();
     let pg_pool = PgPool::connect_with(connection_options)
         .await
         .expect("Failed to connect to Postgres");

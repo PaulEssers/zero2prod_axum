@@ -1,4 +1,4 @@
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Deserializer};
 use unicode_segmentation::UnicodeSegmentation;
 use validator::validate_email;
 
