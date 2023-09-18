@@ -23,6 +23,13 @@ pub struct EmailClientSettings {
     pub base_url: String,
     pub sender: String,
     pub authorization_token: String,
+    pub timeout_milliseconds: u64,
+}
+
+impl EmailClientSettings {
+    pub fn timeout(&self) -> std::time::Duration {
+        std::time::Duration::from_millis(self.timeout_milliseconds)
+    }
 }
 
 #[derive(serde::Deserialize, Clone, Debug)]

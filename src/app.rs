@@ -24,10 +24,12 @@ pub async fn spawn_app(configuration: Settings) -> Result<Router, String> {
     let pg_pool = PgPool::connect_lazy_with(configuration.database.with_db());
 
     let sender_email = ValidEmail::new(&configuration.email_client.sender)?;
+    let timeout = configuration.email_client.timeout();
     let email_client = EmailClient::new(
         configuration.email_client.base_url,
         sender_email,
         configuration.email_client.authorization_token,
+        timeout,
     );
 
     // Axum starts a service per thread on the machine.

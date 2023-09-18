@@ -1,10 +1,5 @@
+use crate::test_utils;
 use axum::http::StatusCode;
-
-
-
-
-
-mod test_utils;
 
 #[tokio::test]
 pub async fn health_check_works() {

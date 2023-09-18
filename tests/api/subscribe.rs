@@ -1,11 +1,30 @@
+use crate::test_utils;
 use axum::http::StatusCode;
+use axum_test_helper::TestResponse;
 use serde::Serialize;
-mod test_utils;
+
+// This trait flags a struct as valid input for TestSetup.subscribe_request
+pub trait SubscribeRequestBody {}
 
 #[derive(serde::Serialize)]
 pub struct SubscribeRequest {
     email: String,
     name: String,
+}
+impl SubscribeRequestBody for SubscribeRequest {}
+
+impl test_utils::TestSetup {
+    pub async fn subscribe_request<T>(&self, body: &T) -> TestResponse
+    where
+        T: SubscribeRequestBody + serde::Serialize,
+    {
+        self.client
+            .post("/subscribe")
+            .header("Content-Type", "application/json")
+            .json(body)
+            .send()
+            .await
+    }
 }
 
 #[tokio::test]
@@ -19,13 +38,7 @@ pub async fn subscribe_returns_200_for_valid_form_data() {
         name: String::from("Ursula le Quin"),
     };
 
-    let response = test_setup
-        .client
-        .post("/subscribe")
-        .header("Content-Type", "application/json")
-        .json(&body)
-        .send()
-        .await;
+    let response = test_setup.subscribe_request(&body).await;
     assert_eq!(response.status(), StatusCode::OK);
     // response.status() == StatusCode::OK
 }
@@ -39,13 +52,7 @@ pub async fn subscribe_inserts_rows_into_database() {
         name: String::from("Ursula le Quin"),
     };
 
-    let response = test_setup
-        .client
-        .post("/subscribe")
-        .header("Content-Type", "application/json")
-        .json(&body)
-        .send()
-        .await;
+    let response = test_setup.subscribe_request(&body).await;
     assert_eq!(response.status(), StatusCode::OK);
 
     let response_db =
@@ -63,6 +70,7 @@ pub async fn subscribe_inserts_rows_into_database() {
 struct MissingEmail {
     name: String,
 }
+impl SubscribeRequestBody for MissingEmail {}
 
 #[tokio::test]
 pub async fn subscribe_returns_422_when_email_is_missing() {
@@ -72,13 +80,7 @@ pub async fn subscribe_returns_422_when_email_is_missing() {
         name: String::from("Ursula le Quin"),
     };
 
-    let response = test_setup
-        .client
-        .post("/subscribe")
-        .header("Content-Type", "application/json")
-        .json(&json)
-        .send()
-        .await;
+    let response = test_setup.subscribe_request(&json).await;
     // .expect("Failed to execute request.");
     // Assert
     assert_eq!(
@@ -93,6 +95,7 @@ pub async fn subscribe_returns_422_when_email_is_missing() {
 struct MissingName {
     email: String,
 }
+impl SubscribeRequestBody for MissingName {}
 
 #[tokio::test]
 pub async fn subscribe_returns_422_when_name_is_missing() {
@@ -102,13 +105,7 @@ pub async fn subscribe_returns_422_when_name_is_missing() {
         email: String::from("ursula_le_quin@gmail.com"),
     };
 
-    let response = test_setup
-        .client
-        .post("/subscribe")
-        .header("Content-Type", "application/json")
-        .json(&json)
-        .send()
-        .await;
+    let response = test_setup.subscribe_request(&json).await;
     // .expect("Failed to execute request.");
     // Assert
     assert_eq!(
@@ -121,6 +118,7 @@ pub async fn subscribe_returns_422_when_name_is_missing() {
 
 #[derive(Serialize)]
 struct MissingBoth {}
+impl SubscribeRequestBody for MissingBoth {}
 
 #[tokio::test]
 pub async fn subscribe_returns_422_when_email_and_name_are_missing() {
@@ -128,13 +126,7 @@ pub async fn subscribe_returns_422_when_email_and_name_are_missing() {
 
     let json = MissingBoth {};
 
-    let response = test_setup
-        .client
-        .post("/subscribe")
-        .header("Content-Type", "application/json")
-        .json(&json)
-        .send()
-        .await;
+    let response = test_setup.subscribe_request(&json).await;
     // .expect("Failed to execute request.");
     // Assert
     assert_eq!(
@@ -163,13 +155,7 @@ async fn subscribe_returns_a_422_when_fields_are_present_but_erroneous() {
             name: String::from(name),
         };
 
-        let response = test_setup
-            .client
-            .post("/subscribe")
-            .header("Content-Type", "application/json")
-            .json(&body)
-            .send()
-            .await;
+        let response = test_setup.subscribe_request(&body).await;
         assert_eq!(
             response.status(),
             StatusCode::UNPROCESSABLE_ENTITY,
