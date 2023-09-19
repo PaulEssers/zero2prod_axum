@@ -76,7 +76,12 @@ pub async fn subscribe_inserts_rows_into_database() {
             .await
             .expect("Failed to connect to Postgres when verifying insertion.");
 
-    assert_eq!(response_db.len(), 1)
+    assert_eq!(response_db.len(), 1);
+
+    let result = &response_db[0];
+    assert_eq!(result.name, body.name);
+    assert_eq!(result.email, body.email);
+    assert_eq!(result.status, "pending_confirmation");
 }
 
 // Could not get these tests to run in a loop due to the varying structs needed to
