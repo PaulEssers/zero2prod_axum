@@ -52,13 +52,13 @@ pub async fn subscribe(
         }
     };
     
-    send_confirmation_email(&state.base_url, &state.email_client, payload.get_email()).await
+    send_confirmation_email(&state.base_url, &state.email_client, payload.get_email(), "mytoken").await
        
 
 }
 
 
-async fn send_confirmation_email(base_url: &app::ApplicationBaseUrl, email_client: &EmailClient, email_address: &str) -> StatusCode {
+async fn send_confirmation_email(base_url: &app::ApplicationBaseUrl, email_client: &EmailClient, email_address: &str, token: &str) -> StatusCode {
 // Send a confirmation email:
     
     // The validation is superfluous, since the validity is also checked
@@ -73,7 +73,7 @@ async fn send_confirmation_email(base_url: &app::ApplicationBaseUrl, email_clien
         }
     };
 
-    let confirmation_link = format!("{}/confirm", base_url.0);
+    let confirmation_link = format!("{}/confirm?token={}", base_url.0, token);
 
     let res_conf = email_client
         .send_email(
