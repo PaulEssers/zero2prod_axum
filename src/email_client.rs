@@ -1,5 +1,6 @@
 use crate::error::Error;
 use reqwest::Client;
+use tracing::{debug, info};
 use validator::validate_email;
 
 #[derive(Debug, Clone)]
@@ -52,6 +53,8 @@ impl EmailClient {
         let base_url = reqwest::Url::parse(&self.base_url)?;
         let url = reqwest::Url::join(&base_url, "/email")?;
 
+        debug!("Creating API call to: {:?}", url);
+
         let request_body = SendEmailRequest {
             from: self.sender.as_str().to_string(),
             to: recipient.as_str().to_string(),
@@ -59,6 +62,8 @@ impl EmailClient {
             html_body: html_content.to_string(),
             text_body: text_content.to_string(),
         };
+
+        debug!("Request body: {:?}", url);
 
         let _ = self
             .http_client
@@ -72,7 +77,7 @@ impl EmailClient {
     }
 }
 
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(serde::Serialize, serde::Deserialize, Debug)]
 #[serde(rename_all = "PascalCase")]
 struct SendEmailRequest {
     from: String,
@@ -143,6 +148,8 @@ mod tests {
             token(),
             std::time::Duration::from_millis(200),
         );
+
+        println!("Mock server uri = {:?}", mock_server.uri());
 
         // Set up the mock server and tell it what the request should look like.
         Mock::given(header_exists("X-Postmark-Server-Token"))

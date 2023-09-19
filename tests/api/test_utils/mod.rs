@@ -2,7 +2,10 @@ use axum_test_helper::TestClient;
 use once_cell::sync::Lazy;
 use sqlx::{Executor, PgPool}; // Connection,
 use std;
+use std::net::IpAddr;
+use tracing::info;
 use uuid::Uuid;
+use wiremock::MockServer;
 use zero2prod::app::spawn_app;
 use zero2prod::configuration::get_configuration;
 use zero2prod::configuration::DatabaseSettings;
@@ -47,35 +50,62 @@ pub fn get_sink_subscriber(name: String, env_filter: String) -> impl Subscriber 
 pub struct TestSetup {
     pub client: TestClient,
     pub pg_pool: PgPool,
+    pub email_server: MockServer,
 }
 
+#[tracing::instrument()]
 pub async fn create_test_setup() -> TestSetup {
     // The first time `initialize` is invoked the code in `TRACING` is executed.
     // All other invocations will instead skip execution.
     Lazy::force(&TRACING);
 
+    info!("Reading configuration settings.");
     let mut configuration = get_configuration().expect("Failed to read configuration.");
 
     // Generate a fresh database for each test.
     let new_db = format!("testdb-{:?}", Uuid::new_v4());
-    println!("Creating new database for current test: {:?}", new_db);
+    info!("Creating new database for current test: {:?}", new_db);
     configuration.database.database_name = new_db;
     configure_database(&configuration.database).await;
 
+    // Launch a mock server to stand in for Postmark's service
+    let email_server = MockServer::start().await;
+    // Extract the randomly chosen port and pass it to the email_client
+    let port = email_server.address().port();
+    let ip = match email_server.address().ip() {
+        IpAddr::V4(ipv4) => ipv4.to_string(),
+        IpAddr::V6(ipv6) => ipv6.to_string(),
+    };
+    // !!! IP address still contains quotes, due to my format call?
+    info!(ip);
+    info!(
+        "Creating mock email server on address: {}:{:?}",
+        remove_quotes(&ip),
+        port
+    );
+
+    configuration.email_client.base_url = format!("http://{}:{:?}", remove_quotes(&ip), port);
+
     // Spawn the app with the newly created db.
     // Can I get the pool back from the app? Now I'm creating multiple pools.
+    info!("Spawning app.");
     let app = spawn_app(configuration.clone())
         .await
         .expect("Failed to spawn app.");
     let client = TestClient::new(app);
 
     // This pool is required to directly check the result of database operations.
+    info!("Creating extra postgres connection pool for checking database operations.");
     let connection_options = configuration.database.with_db();
     let pg_pool = PgPool::connect_with(connection_options)
         .await
         .expect("Failed to connect to Postgres");
 
-    TestSetup { client, pg_pool }
+    TestSetup {
+        client,
+        pg_pool,
+        email_server,
+    }
 }
 
 // Creates and migrates a new database to be used for testing.
@@ -98,4 +128,16 @@ pub async fn configure_database(config: &DatabaseSettings) -> PgPool {
         .await
         .expect("Failed to migrate the database");
     connection_pool
+}
+
+fn remove_quotes(input: &str) -> String {
+    let mut result = String::new();
+
+    for c in input.chars() {
+        if c != '"' {
+            result.push(c);
+        }
+    }
+
+    result
 }

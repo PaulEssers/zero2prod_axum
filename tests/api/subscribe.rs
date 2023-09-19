@@ -3,6 +3,9 @@ use axum::http::StatusCode;
 use axum_test_helper::TestResponse;
 use serde::Serialize;
 
+use wiremock::matchers::{any, method, path};
+use wiremock::{Mock, ResponseTemplate};
+
 // This trait flags a struct as valid input for TestSetup.subscribe_request
 pub trait SubscribeRequestBody {}
 
@@ -14,7 +17,7 @@ pub struct SubscribeRequest {
 impl SubscribeRequestBody for SubscribeRequest {}
 
 impl test_utils::TestSetup {
-    pub async fn subscribe_request<T>(&self, body: &T) -> TestResponse
+    pub async fn post_subscriptions<T>(&self, body: &T) -> TestResponse
     where
         T: SubscribeRequestBody + serde::Serialize,
     {
@@ -38,7 +41,13 @@ pub async fn subscribe_returns_200_for_valid_form_data() {
         name: String::from("Ursula le Quin"),
     };
 
-    let response = test_setup.subscribe_request(&body).await;
+    // email server for the confirmation mail, without it the subscribe route will fail.
+    Mock::given(any())
+        .respond_with(ResponseTemplate::new(200))
+        .mount(&test_setup.email_server)
+        .await;
+
+    let response = test_setup.post_subscriptions(&body).await;
     assert_eq!(response.status(), StatusCode::OK);
     // response.status() == StatusCode::OK
 }
@@ -52,7 +61,13 @@ pub async fn subscribe_inserts_rows_into_database() {
         name: String::from("Ursula le Quin"),
     };
 
-    let response = test_setup.subscribe_request(&body).await;
+    // email server for the confirmation mail, without it the subscribe route will fail.
+    Mock::given(any())
+        .respond_with(ResponseTemplate::new(200))
+        .mount(&test_setup.email_server)
+        .await;
+
+    let response = test_setup.post_subscriptions(&body).await;
     assert_eq!(response.status(), StatusCode::OK);
 
     let response_db =
@@ -80,7 +95,7 @@ pub async fn subscribe_returns_422_when_email_is_missing() {
         name: String::from("Ursula le Quin"),
     };
 
-    let response = test_setup.subscribe_request(&json).await;
+    let response = test_setup.post_subscriptions(&json).await;
     // .expect("Failed to execute request.");
     // Assert
     assert_eq!(
@@ -105,7 +120,7 @@ pub async fn subscribe_returns_422_when_name_is_missing() {
         email: String::from("ursula_le_quin@gmail.com"),
     };
 
-    let response = test_setup.subscribe_request(&json).await;
+    let response = test_setup.post_subscriptions(&json).await;
     // .expect("Failed to execute request.");
     // Assert
     assert_eq!(
@@ -126,7 +141,7 @@ pub async fn subscribe_returns_422_when_email_and_name_are_missing() {
 
     let json = MissingBoth {};
 
-    let response = test_setup.subscribe_request(&json).await;
+    let response = test_setup.post_subscriptions(&json).await;
     // .expect("Failed to execute request.");
     // Assert
     assert_eq!(
@@ -155,7 +170,7 @@ async fn subscribe_returns_a_422_when_fields_are_present_but_erroneous() {
             name: String::from(name),
         };
 
-        let response = test_setup.subscribe_request(&body).await;
+        let response = test_setup.post_subscriptions(&body).await;
         assert_eq!(
             response.status(),
             StatusCode::UNPROCESSABLE_ENTITY,
@@ -163,4 +178,28 @@ async fn subscribe_returns_a_422_when_fields_are_present_but_erroneous() {
             description
         );
     }
+}
+
+#[tokio::test]
+pub async fn subscribe_sends_a_confirmation_mail_for_valid_data() {
+    let test_setup = test_utils::create_test_setup().await;
+
+    let body = SubscribeRequest {
+        email: String::from("ursula_le_guin@gmail.com"),
+        name: String::from("Ursula le Quin"),
+    };
+
+    // Set up the mock server and tell it what the request should look like.
+    Mock::given(path("/email"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .mount(&test_setup.email_server)
+        .await;
+
+    let response = test_setup.post_subscriptions(&body).await;
+    assert_eq!(
+        response.status(),
+        StatusCode::OK,
+        "The API did not send a confirmation email."
+    );
 }
