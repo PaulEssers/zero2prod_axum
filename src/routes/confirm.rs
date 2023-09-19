@@ -29,7 +29,6 @@ pub async fn confirm_subscription(
     Query(query): Query<models::TokenQuery>,
 ) -> StatusCode {
     tracing::info!("Processing request: {:?}", query);
-
     StatusCode::OK
 }
 

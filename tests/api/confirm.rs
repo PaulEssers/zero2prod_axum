@@ -3,9 +3,8 @@ use crate::test_utils;
 use axum::http::StatusCode;
 use axum_test_helper::TestResponse;
 use url::Url;
-use wiremock::matchers::{any, method, path};
+use wiremock::matchers::any;
 use wiremock::{Mock, ResponseTemplate};
-use zero2prod::error::Error;
 
 // Trait that flags a struct as valid for use in posting queries
 pub trait QueryParams {}
@@ -112,12 +111,16 @@ pub async fn subscribe_confirmation_link_works() {
     let route = extract_route(&html_link);
     println!("Route: {:?}", route);
 
+    let route_with_token = format!("{}?token=somerandomstring", route);
+
     let response = test_setup
         .client
-        .post(&route)
+        .post(&route_with_token)
         .header("Content-Type", "application/x-www-form-urlencoded")
         .send()
         .await;
+
+    assert_eq!(response.status(), StatusCode::OK)
 }
 
 fn extract_route(url_str: &str) -> String {
