@@ -8,7 +8,6 @@ use std::sync::Arc;
 
 use crate::app;
 
-use crate::error::Error;
 use crate::models;
 use crate::email_client::{ValidEmail, EmailClient};
 
@@ -53,14 +52,13 @@ pub async fn subscribe(
         }
     };
     
-    let status = send_confirmation_email(&state.email_client, payload.get_email()).await;
-    status
-   
+    send_confirmation_email(&state.base_url, &state.email_client, payload.get_email()).await
+       
 
 }
 
 
-async fn send_confirmation_email(email_client: &EmailClient, email_address: &str) -> StatusCode {
+async fn send_confirmation_email(base_url: &app::ApplicationBaseUrl, email_client: &EmailClient, email_address: &str) -> StatusCode {
 // Send a confirmation email:
     
     // The validation is superfluous, since the validity is also checked
@@ -75,7 +73,7 @@ async fn send_confirmation_email(email_client: &EmailClient, email_address: &str
         }
     };
 
-    let confirmation_link = "https://my-api.com/subscriptions/confirm";
+    let confirmation_link = format!("{}/confirm", base_url.0);
 
     let res_conf = email_client
         .send_email(

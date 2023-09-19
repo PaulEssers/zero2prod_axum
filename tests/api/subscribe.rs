@@ -11,8 +11,8 @@ pub trait SubscribeRequestBody {}
 
 #[derive(serde::Serialize)]
 pub struct SubscribeRequest {
-    email: String,
-    name: String,
+    pub email: String,
+    pub name: String,
 }
 impl SubscribeRequestBody for SubscribeRequest {}
 

@@ -4,6 +4,7 @@ use axum_macros::FromRef;
 
 use crate::configuration::Settings;
 use crate::email_client::{EmailClient, ValidEmail};
+use crate::routes::confirm::confirm_subscription;
 use crate::routes::subscribe::subscribe;
 use crate::routes::utils::health_check;
 
@@ -17,7 +18,11 @@ use tracing::Level;
 pub struct AppState {
     pub pg_pool: PgPool,
     pub email_client: EmailClient,
+    pub base_url: ApplicationBaseUrl,
 }
+
+#[derive(Clone, FromRef)]
+pub struct ApplicationBaseUrl(pub String);
 
 pub async fn spawn_app(configuration: Settings) -> Result<Router, String> {
     tracing::info!("Creating Postgres connection pool.");
@@ -32,11 +37,14 @@ pub async fn spawn_app(configuration: Settings) -> Result<Router, String> {
         timeout,
     );
 
+    let base_url = ApplicationBaseUrl(configuration.application.host);
+
     // Axum starts a service per thread on the machine.
     // Arc lets the database connection be shared between threads
     let shared_state = Arc::new(AppState {
         pg_pool,
         email_client,
+        base_url,
     });
 
     // build our application with some routes
@@ -44,6 +52,7 @@ pub async fn spawn_app(configuration: Settings) -> Result<Router, String> {
     let app = Router::new()
         .route("/health_check", get(health_check))
         .route("/subscribe", post(subscribe))
+        .route("/confirm", post(confirm_subscription))
         .layer(
             TraceLayer::new_for_http()
                 .make_span_with(trace::DefaultMakeSpan::new().level(Level::INFO))
