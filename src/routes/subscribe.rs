@@ -8,8 +8,9 @@ use std::sync::Arc;
 
 use crate::app;
 
+use crate::error::Error;
 use crate::models;
-use crate::email_client::ValidEmail;
+use crate::email_client::{ValidEmail, EmailClient};
 
 #[debug_handler]
 #[tracing::instrument(
@@ -52,12 +53,21 @@ pub async fn subscribe(
         }
     };
     
-    // Send a confirmation email:
+    let status = send_confirmation_email(&state.email_client, payload.get_email()).await;
+    status
+   
+
+}
+
+
+async fn send_confirmation_email(email_client: &EmailClient, email_address: &str) -> StatusCode {
+// Send a confirmation email:
     
     // The validation is superfluous, since the validity is also checked
     // during derialisation of the request, but I need a ValidEmail for the
     // email_client.
-    let email_address = match ValidEmail::new(payload.get_email()) {
+    // let email_address = ValidEmail::new(email_address)?;
+    let email_address = match ValidEmail::new(email_address) {
         Ok(x) => x,
         Err(err) => {
             tracing::error!("Email is not valid: {:?}", err);
@@ -65,26 +75,35 @@ pub async fn subscribe(
         }
     };
 
-    let res_conf = state.email_client
+    let confirmation_link = "https://my-api.com/subscriptions/confirm";
+
+    let res_conf = email_client
         .send_email(
-        &email_address,
-        "Welcome!",
-        "Welcome to our newsletter!",
-        "Welcome to our newsletter!",
+            &email_address,
+            "Welcome!",
+            &format!(
+                "Welcome to our newsletter!<br />\
+                Click <a href=\"{}\">here</a> to confirm your subscription.",
+                confirmation_link
+            ),
+            &format!(
+                "Welcome to our newsletter!\nVisit {} to confirm your subscription.",
+                confirmation_link
+            )
         )
         .await;
 
-    match res_conf {
-        Ok(_) => {
-            tracing::info!("Confirmation email sent!.");
-        },
-        Err(err) => {
-            tracing::error!("Confirmation email failed with error: {:?}", err);
-            // tracing::debug!("email_client.url =  {:?}", state.email_client.base_url);
-            return StatusCode::INTERNAL_SERVER_ERROR
-        }
-    };
-
-    StatusCode::OK
+        match res_conf {
+            Ok(_) => {
+                tracing::info!("Confirmation email sent!.");
+            },
+            Err(err) => {
+                tracing::error!("Confirmation email failed with error: {:?}", err);
+                // tracing::debug!("email_client.url =  {:?}", state.email_client.base_url);
+                return StatusCode::INTERNAL_SERVER_ERROR
+            }
+        };
+    
+        StatusCode::OK
 
 }

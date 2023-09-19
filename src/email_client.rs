@@ -1,6 +1,6 @@
 use crate::error::Error;
 use reqwest::Client;
-use tracing::{debug, info};
+use tracing::debug;
 use validator::validate_email;
 
 #[derive(Debug, Clone)]

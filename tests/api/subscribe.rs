@@ -203,3 +203,47 @@ pub async fn subscribe_sends_a_confirmation_mail_for_valid_data() {
         "The API did not send a confirmation email."
     );
 }
+
+#[tokio::test]
+pub async fn subscribe_sends_a_confirmation_mail_with_a_link() {
+    let test_setup = test_utils::create_test_setup().await;
+
+    let body = SubscribeRequest {
+        email: String::from("ursula_le_guin@gmail.com"),
+        name: String::from("Ursula le Quin"),
+    };
+
+    // Set up the mock server and tell it what the request should look like.
+    Mock::given(path("/email"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .mount(&test_setup.email_server)
+        .await;
+
+    let response = test_setup.post_subscriptions(&body).await;
+
+    assert_eq!(
+        response.status(),
+        StatusCode::OK,
+        "Email server returned an error."
+    );
+
+    // Get the first intercepted request
+    let email_request = &test_setup.email_server.received_requests().await.unwrap()[0];
+    // Parse the body as JSON, starting from raw bytes
+    let req_body: serde_json::Value = serde_json::from_slice(&email_request.body).unwrap();
+
+    let get_link = |s: &str| {
+        let links: Vec<_> = linkify::LinkFinder::new()
+            .links(s)
+            .filter(|l| *l.kind() == linkify::LinkKind::Url)
+            .collect();
+        assert_eq!(links.len(), 1);
+        links[0].as_str().to_owned()
+    };
+
+    let html_link = get_link(&req_body["HtmlBody"].as_str().unwrap());
+    let text_link = get_link(&req_body["TextBody"].as_str().unwrap());
+    // The two links should be identical
+    assert_eq!(html_link, text_link);
+}
