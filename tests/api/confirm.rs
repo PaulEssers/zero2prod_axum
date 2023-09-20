@@ -57,7 +57,7 @@ pub fn get_confirmation_links(email_request: &wiremock::Request) -> String {
 }
 
 #[tokio::test]
-async fn confirmations_with_token_are_accepted_with_a_200() {
+async fn confirmations_with_invalid_token_are_rejected_with_a_401() {
     // Arrange
     let test_setup = test_utils::create_test_setup().await;
     let query = CorrectQueryParams {
@@ -68,7 +68,7 @@ async fn confirmations_with_token_are_accepted_with_a_200() {
     let response = test_setup.post_confirm(&query).await;
 
     // Assert
-    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
 }
 
 #[derive(Debug, serde::Serialize)]
